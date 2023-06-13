@@ -9,9 +9,9 @@ class Roller(commands.Cog):
         self.bot = bot
 
     @commands.command(name = "roll", aliases = ["r"], help = "Rolls any amount of dice in NdM format where N and M are non-negative integers")
-    async def roll(ctx, dice: str):
+    async def roll(self, ctx, dice: str):
         try:
-            dice = ctx.message.content
+            # dice = ctx.message.content
             rolls, limit = map(int, dice.split('d'))
         except Exception:
             await ctx.send("Syntax error")

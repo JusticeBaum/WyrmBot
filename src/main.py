@@ -17,7 +17,7 @@ def main():
     intents = discord.Intents.default()
     intents.message_content = True
 
-    bot = commands.Bot(command_prefix='/', description = description, intents = intents)
+    bot = commands.Bot(command_prefix = '/', description = description, intents = intents)
     asyncio.run(setup(bot))
     bot.run(os.environ.get('TOKEN'))
 
