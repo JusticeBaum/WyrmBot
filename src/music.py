@@ -1,7 +1,7 @@
 import asyncio
 import discord
 from discord.ext import commands
-import youtube_dl
+import yt_dlp as youtube_dl
 
 ytdl_format_options = {
     'format': 'bestaudio/best',
@@ -49,13 +49,39 @@ class Source(discord.PCMVolumeTransformer):
 class Player(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
+        # Current voice channel the bot occupies
+        self.vc = None
 
     @commands.command(name = "join", aliases = ["j"], help = "Joins caller's current voice channel")
     async def join(self, ctx):
-
         channel = ctx.message.author.voice.channel
         try:
-            await channel.connect()
+            if self.vc == None or not self.vc.is_connected():
+                self.vc =  await channel.connect()
+                return
         except Exception:
             await ctx.send("Caller must be in a voice channel")
             return
+    
+    @commands.command(name = "play", alias = ['p'], help = "Streams from a Youtube URL")
+    async def play(self, ctx, url):
+        player = await Source.from_url(url, loop=self.bot.loop)
+        ctx.voice_client.play(player, after=lambda e: print(f'Player error: {e}') if e else None)
+
+        await ctx.send(f'Now playing: {player.title}')
+
+    # @commands.command(name = "skip", help = "Jumps to the next song in the queue")
+    # async def skip(self, ctx):
+
+    @commands.command(name = "pause", help = "Halt the currently playing track")
+    async def pause(self, ctx):
+        self.vc.pause()
+
+    @commands.command(name = "resume", help = "Resumes playing the currently paused track")
+    async def resume(self, ctx):
+        self.vc.resume()
+    
+    @commands.command(name = "stop", alias = ['s'], help = "Halts the player by disconnecting from the connected voice channel")
+    async def stop(self, ctx):
+        await ctx.voice_client.disconnect()
+    
