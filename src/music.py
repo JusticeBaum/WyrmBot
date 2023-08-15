@@ -51,13 +51,20 @@ class Player(commands.Cog):
         self.bot = bot
         # Current voice channel the bot occupies
         self.vc = None
+        #TODO: add queue functionality
 
-    @commands.command(name = "join", aliases = ["j"], help = "Joins caller's current voice channel")
+    @commands.command(name = "join", aliases = ["j", "move"], help = "Joins caller's current voice channel")
     async def join(self, ctx):
         channel = ctx.message.author.voice.channel
         try:
-            if self.vc == None or not self.vc.is_connected():
+            # If this is first time joining this run
+            if self.vc == None:
                 self.vc =  await channel.connect()
+                return
+            # If moving to a different channel
+            elif self.vc.is_connected():
+                await ctx.voice_client.disconnect()
+                self.vc = await channel.connect()
                 return
         except Exception:
             await ctx.send("Caller must be in a voice channel")
@@ -70,10 +77,7 @@ class Player(commands.Cog):
 
         await ctx.send(f'Now playing: {player.title}')
 
-    # @commands.command(name = "skip", help = "Jumps to the next song in the queue")
-    # async def skip(self, ctx):
-
-    @commands.command(name = "pause", help = "Halt the currently playing track")
+    @commands.command(name = "pause", alias = ["stop"], help = "Halt the currently playing track")
     async def pause(self, ctx):
         self.vc.pause()
 
@@ -81,7 +85,8 @@ class Player(commands.Cog):
     async def resume(self, ctx):
         self.vc.resume()
     
-    @commands.command(name = "stop", alias = ['s'], help = "Halts the player by disconnecting from the connected voice channel")
+    @commands.command(name = "leave", alias = ["go"], help = "Disconnects from current voice channel")
     async def stop(self, ctx):
+        self.vc = None
         await ctx.voice_client.disconnect()
     
