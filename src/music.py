@@ -43,8 +43,8 @@ class Player(commands.Cog):
         self.vc = None
         # Queue of streamable objects
         self.queue = []
-        # Current spot in the queue
-        self.q_index = 0
+        # Currently playing object
+        self.cur = None
 
     # Helper methods
 
@@ -104,6 +104,13 @@ class Player(commands.Cog):
         self.q_reset()
         await ctx.voice_client.disconnect()
 
+    @commands.command(name = "playing", help = "Displays information on the currently playing track")
+    async def playing(self, ctx):
+        if self.cur is None:
+            await self.tc.send("No song currently playing")
+        else:
+            await self.tc.send(f'Currently playing: {self.cur.title}')
+
     @commands.command(name = "pause", alias = ["stop"], help = "Halt the currently playing track")
     async def pause(self, ctx):
         self.is_paused = True
@@ -111,31 +118,27 @@ class Player(commands.Cog):
 
     @commands.command(name = "play", alias = ['p'], help = "Loops through the current queue, playing each track")
     async def play(self, ctx):
-        # TODO: Live updates of queue when add is invoked
-        # Currently only plays songs in queue at time of calling
-        print("Command received")
-        if self.is_paused:
-            self.vc.resume()
+            # TODO add optional *args for passing urls directly into command
+            if self.is_paused:
+                self.vc.resume()
+            elif len(self.queue) > 0:
+                self.is_paused = False
+                play = self.queue.pop(0)
+                self.cur = play
+                self.vc.play(play, after=lambda e: print(f'Player error: {e}') if e else self.play_next())
+            else:
+                await self.tc.send("No songs in queue")
+
+    def play_next(self):
+        if len(self.queue) > 0:
+            play = self.queue.pop(0)
+            self.cur = play
+            self.vc.play(play, after=lambda e: print(f'Player error: {e}') if e else self.play_next())
+        else:
+            print("No songs remaining in queue")
             return
-        if self.q_index == len(self.queue) - 1:
-            # base case 1
-            self.vc.play(self.queue[self.q_index], after=lambda e: print(f'Player error: {e}') if e else None)
-            await self.tc.send(f'Now playing: {self.queue[self.q_index].title}')
-            while self.vc.is_playing():
-                await asyncio.sleep(10)
-            print("Finished playing")
-            await self.tc.send("No songs remaining in queue")
-            self.q_reset()
-        elif self.q_index + 1 < len(self.queue) - 1:
-            # Recursive call
-            self.q_index += 1
-            self.vc.play(self.queue[self.q_index], after=lambda e: print(f'Player error: {e}') if e else None)
-            await self.tc.send(f'Now playing: {self.queue[self.q_index].title}')
-            while self.vc.is_playing():
-                await asyncio.sleep(10)
-            self.play(ctx)
-    
-    @commands.command(name = "queue", alias = ['q'], help = "Displays all songs currently in the queue")
+
+    @commands.command(name = "queue", alias = ['q', "display"], help = "Displays all songs currently in the queue")
     async def queue(self, ctx):
         queue = ""
         for song in self.queue:
@@ -143,10 +146,10 @@ class Player(commands.Cog):
             queue += "\n"
         await ctx.send(queue)
             
-    
-
     @commands.command(name = 'skip', help = 'Skips to the next song in the queue')
     async def skip(self, ctx):
-        # TODO
-        None    
+        self.vc.pause()
+        play = self.queue.pop(0)
+        self.cur = play
+        self.vc.play(play, after=lambda e: print(f'Player error: {e}') if e else self.play_next())  
     
