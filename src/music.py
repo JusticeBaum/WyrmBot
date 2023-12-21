@@ -31,30 +31,16 @@ class Source(discord.PCMVolumeTransformer):
 
         self.title = data.get('title')
         self.url = data.get('url')
-
-    # @classmethod
-    # # Get a streamable object from a url
-    # async def from_url(cls, url, loop = None):
-    #     loop = loop or asyncio.get_event_loop()
-    #     data = await loop.run_in_executor(None, lambda: ytdl.extract_info(url, download=False))
-
-    #     # if playlist
-    #     if 'entries' in data:
-    #         # take first item
-    #         data = data['entries'][0]
-        
-    #     filename = data['url']
-    #     return cls(discord.FFmpegPCMAudio(filename, **ffmpeg_options), data=data)
         
 # Class that provides music player functionality
 class Player(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
+        self.is_paused = False
         # Text channel the bot last received a message on
         self.tc = None
         # Current voice channel the bot occupies
         self.vc = None
-        #TODO: add queue functionality
         # Queue of streamable objects
         self.queue = []
         # Current spot in the queue
@@ -93,12 +79,6 @@ class Player(commands.Cog):
         self.queue = []
         self.q_index = 0
 
-    @commands.command(name = "dump")
-    async def dump(self, ctx):
-        print(self.vc)
-        print(len(self.queue))
-        print(self.q_index)
-
     @commands.command(name = "join", aliases = ["j", "move"], help = "Joins caller's current voice channel")
     async def join(self, ctx):
         self.tc = ctx.channel
@@ -126,6 +106,7 @@ class Player(commands.Cog):
 
     @commands.command(name = "pause", alias = ["stop"], help = "Halt the currently playing track")
     async def pause(self, ctx):
+        self.is_paused = True
         self.vc.pause()
 
     @commands.command(name = "play", alias = ['p'], help = "Loops through the current queue, playing each track")
@@ -133,6 +114,9 @@ class Player(commands.Cog):
         # TODO: Live updates of queue when add is invoked
         # Currently only plays songs in queue at time of calling
         print("Command received")
+        if self.is_paused:
+            self.vc.resume()
+            return
         if self.q_index == len(self.queue) - 1:
             # base case 1
             self.vc.play(self.queue[self.q_index], after=lambda e: print(f'Player error: {e}') if e else None)
@@ -150,10 +134,16 @@ class Player(commands.Cog):
             while self.vc.is_playing():
                 await asyncio.sleep(10)
             self.play(ctx)
-
-    @commands.command(name = "resume", help = "Resumes playing the currently paused track")
-    async def resume(self, ctx):
-        self.vc.resume()
+    
+    @commands.command(name = "queue", alias = ['q'], help = "Displays all songs currently in the queue")
+    async def queue(self, ctx):
+        queue = ""
+        for song in self.queue:
+            queue += song.title
+            queue += "\n"
+        await ctx.send(queue)
+            
+    
 
     @commands.command(name = 'skip', help = 'Skips to the next song in the queue')
     async def skip(self, ctx):
