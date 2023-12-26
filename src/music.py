@@ -121,7 +121,7 @@ class Player(commands.Cog):
             # TODO add optional *args for passing urls directly into command
             if self.is_paused:
                 self.vc.resume()
-            elif len(self.queue) > 0:
+            elif self.queue:
                 self.is_paused = False
                 play = self.queue.pop(0)
                 self.cur = play
@@ -130,7 +130,7 @@ class Player(commands.Cog):
                 await self.tc.send("No songs in queue")
 
     def play_next(self):
-        if len(self.queue) > 0:
+        if self.queue:
             play = self.queue.pop(0)
             self.cur = play
             self.vc.play(play, after=lambda e: print(f'Player error: {e}') if e else self.play_next())
@@ -148,8 +148,12 @@ class Player(commands.Cog):
             
     @commands.command(name = 'skip', help = 'Skips to the next song in the queue')
     async def skip(self, ctx):
-        self.vc.pause()
-        play = self.queue.pop(0)
-        self.cur = play
-        self.vc.play(play, after=lambda e: print(f'Player error: {e}') if e else self.play_next())  
+        if self.queue:
+            self.vc.pause()
+            play = self.queue.pop(0)
+            self.cur = play
+            self.vc.play(play, after=lambda e: print(f'Player error: {e}') if e else self.play_next())
+        else:
+            self.vc.pause()
+            await self.tc.send("No songs remaining in queue")  
     
