@@ -11,6 +11,7 @@ async def setup(bot):
     await bot.add_cog(Roller(bot))
 
 # Create and run the bot
+    
 def main():
     description = '''A Discord bot meant to assist in running virtual TTRPG sessions'''
 

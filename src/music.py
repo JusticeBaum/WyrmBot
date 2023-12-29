@@ -7,9 +7,9 @@ ytdl_format_options = {
     'format': 'bestaudio/best',
     'outtmpl': '%(extractor)s-%(id)s-%(title)s.%(ext)s',
     'restrictfilenames': True,
-    'noplaylist': True,
+    'noplaylist': False,
     'nocheckcertificate': True,
-    'ignoreerrors': False,
+    'ignoreerrors': True,
     'logtostderr': False,
     'quiet': True,
     'no_warnings': True,
@@ -31,6 +31,25 @@ class Source(discord.PCMVolumeTransformer):
 
         self.title = data.get('title')
         self.url = data.get('url')
+
+# Returns an instance of a 'Source' object
+# Returns array thereof if multiple tracks are found
+async def from_url(url, loop = None):
+    loop = loop or asyncio.get_event_loop()
+    data = await loop.run_in_executor(None, lambda: ytdl.extract_info(url, download=False))
+    result = []
+
+    if 'entries' in data:
+        print("playlist!")
+        #print(list(data.items()))
+        for song in data['entries']:
+            print(song['title'])
+            result.append(Source(discord.FFmpegPCMAudio(song['url'], **ffmpeg_options), data=data))
+            result[-1].title = song['title']
+    else:
+        result = Source(discord.FFmpegPCMAudio(data['url'], **ffmpeg_options), data=data)
+
+    return result
         
 # Class that provides music player functionality
 class Player(commands.Cog):
@@ -48,36 +67,39 @@ class Player(commands.Cog):
 
     # Helper methods
 
-    # Returns a 'Source' object from a youtube url
-    async def from_url(self, url, loop = None):
-        loop = loop or asyncio.get_event_loop()
-        data = await loop.run_in_executor(None, lambda: ytdl.extract_info(url, download=False))
+    # Converts URL into a Source object, adding it to the queue as it does so
+    # async def from_url(self, url, loop = None):
+    #     loop = loop or asyncio.get_event_loop()
+    #     data = await loop.run_in_executor(None, lambda: ytdl.extract_info(url, download=False))
 
-        # If playlist
-        if 'entries' in data:
-            # for each song in playlist
-            for song in data['entries']:
-                self.queue.append(Source(discord.FFmpegPCMAudio(song['url'], **ffmpeg_options), data=data))
-                await self.tc.send("Added contents of playlist to queue")
-        else:
-            self.queue.append(Source(discord.FFmpegPCMAudio(data['url'], **ffmpeg_options), data=data))
-            await self.tc.send(f'Added: {self.queue[len(self.queue) - 1].title} to queue')
-
-    # Resets the state of the queue        
-    async def q_reset(self):
-        self.queue = []
-        self.q_index = 0
+    #     # If playlist
+    #     if 'entries' in data:
+    #         # for each song in playlist
+    #         for song in data['entries']:
+    #             self.queue.append(Source(discord.FFmpegPCMAudio(song['url'], **ffmpeg_options), data=data))
+    #             await self.tc.send("Added contents of playlist to queue")
+    #     else:
+    #         self.queue.append(Source(discord.FFmpegPCMAudio(data['url'], **ffmpeg_options), data=data))
+    #         await self.tc.send(f'Added: {self.queue[len(self.queue) - 1].title} to queue')
 
     # Bot commands
 
     @commands.command(name = "add", alias = ['a', '+'], help = "Add a song to the queue")
     async def add(self, ctx, url):
-        await self.from_url(url, loop = self.bot.loop)
+        to_add = await from_url(url, loop = self.bot.loop)
+        if isinstance(to_add, list):
+            #TODO
+            self.queue += to_add
+            for song in to_add:
+                await self.tc.send(f"Added {song.title} to queue")
+        else:
+            self.queue.append(to_add)
+            await self.tc.send(f"Added {to_add.title} to queue")
 
     @commands.command(name = "clear", help = 'Clear the current queue')
     async def clear(self, ctx):
         self.queue = []
-        self.q_index = 0
+        self.cur = None
 
     @commands.command(name = "join", aliases = ["j", "move"], help = "Joins caller's current voice channel")
     async def join(self, ctx):
@@ -101,7 +123,8 @@ class Player(commands.Cog):
     async def leave(self, ctx):
         self.tc = None
         self.vc = None
-        self.q_reset()
+        self.queue = []
+        self.cur = None
         await ctx.voice_client.disconnect()
 
     @commands.command(name = "playing", help = "Displays information on the currently playing track")
