@@ -12,18 +12,11 @@ async def test_youtube_playlist_parser():
     test = await from_url("https://www.youtube.com/playlist?list=PLaDrN74SfdT7Ueqtwn_bXo1MuSWT0ji2w")
     assert len(test) == 29
     assert test[0].title == "Solving the Zelda Timeline in 15 Minutes | Unraveled"
-    assert test[28].title == "Pokemon Edibility | Unraveled"
+    assert test[28].title == "Pokémon Edibility | Unraveled"
 
+def test_find_domain():
+    youtube_test = find_domain("https://www.youtube.com/watch?v=zk62uUqcNyo")
+    assert youtube_test is Domain.YOUTUBE
 
-
-
-
-# Helper method to create a bot
-# def bot_create():
-#     description = '''A Discord bot meant to assist in running virtual TTRPG sessions'''
-#     intents = discord.Intents.default()
-#     intents.message_content = True
-
-#     bot = commands.Bot(command_prefix = '/', description = description, intents = intents)
-#     asyncio.run(setup(bot))
-#     bot.run(os.environ.get('TOKEN'))
+    spotify_test = find_domain("https://open.spotify.com/track/6yCysJaY0lFqHnrHvaR4pF")
+    assert spotify_test is Domain.SPOTIFY

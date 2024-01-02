@@ -1,7 +1,9 @@
 import asyncio
 import discord
 from discord.ext import commands
+from enum import Enum, auto, unique
 import yt_dlp as youtube_dl
+from urllib.parse import urlparse
 
 ytdl_format_options = {
     'format': 'bestaudio/best',
@@ -21,7 +23,7 @@ ffmpeg_options = {
     'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5',
     'options': '-vn',
 }
-ytdl = youtube_dl.YoutubeDL(ytdl_format_options)
+# ytdl = youtube_dl.YoutubeDL(ytdl_format_options)
 
 class Source(discord.PCMVolumeTransformer):
     def __init__(self, source, data, volume = 0.5):
@@ -35,21 +37,27 @@ class Source(discord.PCMVolumeTransformer):
 # Returns an instance of a 'Source' object
 # Returns array thereof if multiple tracks are found
 async def from_url(url, loop = None):
-    loop = loop or asyncio.get_event_loop()
-    data = await loop.run_in_executor(None, lambda: ytdl.extract_info(url, download=False))
-    result = []
+    domain = find_domain(url)
+    match domain:
+        case Domain.YOUTUBE:
+            with youtube_dl.YoutubeDL(ytdl_format_options) as ytdl:
+                data = ytdl.extract_info(url, download=False)
+            result = []
 
-    if 'entries' in data:
-        print("playlist!")
-        #print(list(data.items()))
-        for song in data['entries']:
-            print(song['title'])
-            result.append(Source(discord.FFmpegPCMAudio(song['url'], **ffmpeg_options), data=data))
-            result[-1].title = song['title']
-    else:
-        result = Source(discord.FFmpegPCMAudio(data['url'], **ffmpeg_options), data=data)
+            if 'entries' in data:
+                print("playlist!")
+                #print(list(data.items()))
+                for song in data['entries']:
+                    print(song['title'])
+                    result.append(Source(discord.FFmpegPCMAudio(song['url'], **ffmpeg_options), data=data))
+                    result[-1].title = song['title']
+            else:
+                result = Source(discord.FFmpegPCMAudio(data['url'], **ffmpeg_options), data=data)
 
-    return result
+            return result
+        case Domain.SPOTIFY:
+            #TODO
+            pass
         
 # Class that provides music player functionality
 class Player(commands.Cog):
@@ -64,23 +72,6 @@ class Player(commands.Cog):
         self.queue = []
         # Currently playing object
         self.cur = None
-
-    # Helper methods
-
-    # Converts URL into a Source object, adding it to the queue as it does so
-    # async def from_url(self, url, loop = None):
-    #     loop = loop or asyncio.get_event_loop()
-    #     data = await loop.run_in_executor(None, lambda: ytdl.extract_info(url, download=False))
-
-    #     # If playlist
-    #     if 'entries' in data:
-    #         # for each song in playlist
-    #         for song in data['entries']:
-    #             self.queue.append(Source(discord.FFmpegPCMAudio(song['url'], **ffmpeg_options), data=data))
-    #             await self.tc.send("Added contents of playlist to queue")
-    #     else:
-    #         self.queue.append(Source(discord.FFmpegPCMAudio(data['url'], **ffmpeg_options), data=data))
-    #         await self.tc.send(f'Added: {self.queue[len(self.queue) - 1].title} to queue')
 
     # Bot commands
 
@@ -178,5 +169,23 @@ class Player(commands.Cog):
             self.vc.play(play, after=lambda e: print(f'Player error: {e}') if e else self.play_next())
         else:
             self.vc.pause()
-            await self.tc.send("No songs remaining in queue")  
+            await self.tc.send("No songs remaining in queue")
+
+
+@unique
+class Domain(discord.Enum):
+    YOUTUBE = auto()
+    SPOTIFY = auto()
+
+
+# Returns the appropriate domain Enum for a given url
+def find_domain(url):
+    split_url = urlparse(url)
+    netloc = split_url.netloc
+    domain = netloc.split('.')[1]
+    match domain:
+        case 'youtube':
+            return Domain.YOUTUBE
+        case 'spotify':
+            return  Domain.SPOTIFY
     
