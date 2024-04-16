@@ -14,7 +14,12 @@ class Roller(commands.Cog):
         if roll % 2 == 0:
             await ctx.send("Tails!")
         else:
-            await ctx.send("Heads") 
+            await ctx.send("Heads")
+
+    @commands.command(name = "emph", help = "Rolls with emphasis (as described by Brennan Lee Mulligan).")
+    async def emphasis(self, ctx, dc: str):
+        rolls = [random.randint(1, 20) for r in range(2)]
+        await ctx.send(f"Rolled: {rolls[1]}, {rolls[0]}; Respective distances from DC before bonuses: {rolls[1] - int(dc)}, {rolls[0] - int(dc)}")
 
     @commands.command(name = "roll", aliases = ["r"], help = "Rolls any amount of dice in NdM format where N and M are non-negative integers")
     async def roll(self, ctx, dice: str):
